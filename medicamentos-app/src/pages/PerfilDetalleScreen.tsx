@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -8,26 +8,41 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useMedicamentos } from '../hooks';
-import { usePerfilActivo } from '../contexts/PerfilActivoContext';
+import { getPerfilById } from '../services/api';
 import { PillIcon } from '../components';
 import { formatHorarios } from '../utils';
+import type { Perfil } from '../models/perfil';
 
-export default function MisPastillasScreen() {
+export default function PerfilDetalleScreen() {
   const router = useRouter();
-  const { perfilActivoId } = usePerfilActivo();
-  const perfilId = perfilActivoId ?? 1;
+  const insets = useSafeAreaInsets();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const perfilId = Number(id);
+
   const { medicamentos, loading, eliminar } = useMedicamentos(perfilId);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [cargandoPerfil, setCargandoPerfil] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [eliminando, setEliminando] = useState(false);
 
-  const abrirModal = (id: number) => {
-    setSelectedId(id);
-    setModalVisible(true);
-  };
+  useEffect(() => {
+    if (!perfilId) return;
+    (async () => {
+      try {
+        const { data } = await getPerfilById(perfilId);
+        setPerfil(data);
+      } catch (error) {
+        console.error('Error al cargar perfil:', error);
+      } finally {
+        setCargandoPerfil(false);
+      }
+    })();
+  }, [perfilId]);
 
   const confirmarEliminar = async () => {
     if (selectedId === null) return;
@@ -43,31 +58,50 @@ export default function MisPastillasScreen() {
     }
   };
 
-  if (loading) {
+  if (loading || cargandoPerfil) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#10b981" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 1. Header */}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: 16 + insets.top }]}
+    >
+      {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Mis Pastillas</Text>
-          <Text style={styles.counter}>{medicamentos.length} medicamentos</Text>
-        </View>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{perfil?.nombre ?? 'Perfil'}</Text>
         <TouchableOpacity
           style={styles.agregarBtn}
-          onPress={() => router.push('/agregar-medicamento' as never)}
+          onPress={() => router.push(`/agregar-medicamento?perfil_id=${perfilId}` as never)}
         >
           <Text style={styles.agregarBtnText}>+ Agregar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 2. Lista de medicamentos */}
+      {/* Info del perfil */}
+      {perfil?.relacion ? (
+        <View style={styles.perfilInfo}>
+          <PillIcon size={48} backgroundColor="#e0f2fe" />
+          <View style={styles.perfilInfoText}>
+            <Text style={styles.perfilName}>{perfil.nombre}</Text>
+            <Text style={styles.perfilRelacion}>{perfil.relacion}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Subtítulo */}
+      <Text style={styles.sectionTitle}>
+        {medicamentos.length} {medicamentos.length === 1 ? 'medicamento' : 'medicamentos'}
+      </Text>
+
+      {/* Lista de medicamentos */}
       {medicamentos.length === 0 ? (
         <Text style={styles.emptyText}>No hay medicamentos cargados</Text>
       ) : (
@@ -109,7 +143,10 @@ export default function MisPastillasScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionBtn}
-                onPress={() => abrirModal(med.id)}
+                onPress={() => {
+                  setSelectedId(med.id);
+                  setModalVisible(true);
+                }}
               >
                 <Text style={styles.actionIconDelete}>🗑</Text>
                 <Text style={styles.actionLabelDelete}>Eliminar</Text>
@@ -119,7 +156,7 @@ export default function MisPastillasScreen() {
         ))
       )}
 
-      {/* 3. Modal de confirmación */}
+      {/* Modal de confirmación */}
       <Modal
         visible={modalVisible}
         transparent
@@ -138,7 +175,6 @@ export default function MisPastillasScreen() {
             <Text style={styles.modalWarning}>
               Esta acción no se puede deshacer y se perderán los horarios asociados.
             </Text>
-
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
@@ -186,16 +222,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
   },
-  title: {
-    fontSize: 24,
-    fontFamily: 'Inter-ExtraBold',
-    color: '#1e293b',
+  backIcon: {
+    fontSize: 22,
+    color: '#10b981',
   },
-  counter: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#64748b',
-    marginTop: 2,
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
+    color: '#1e293b',
+    flex: 1,
+    textAlign: 'center',
   },
   agregarBtn: {
     backgroundColor: '#10b981',
@@ -207,6 +243,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
+  },
+
+  /* Perfil info */
+  perfilInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  perfilInfoText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  perfilName: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1e293b',
+  },
+  perfilRelacion: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+    marginTop: 2,
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#64748b',
+    marginBottom: 12,
   },
 
   /* Card */
@@ -299,6 +369,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     color: '#ef4444',
   },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#94a3b8',
+    textAlign: 'center',
+    paddingVertical: 32,
+  },
 
   /* Modal */
   modalOverlay: {
@@ -379,12 +456,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#94a3b8',
-    textAlign: 'center',
-    paddingVertical: 32,
   },
 });

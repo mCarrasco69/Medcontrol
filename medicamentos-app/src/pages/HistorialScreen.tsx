@@ -9,14 +9,15 @@ import {
 import { useRouter } from 'expo-router';
 
 import { useHistorial } from '../hooks';
+import { usePerfilActivo } from '../contexts/PerfilActivoContext';
 import { EstadoBadge, PillIcon } from '../components';
 import { formatFechaProgramada } from '../utils';
 
-const PERFIL_ID = 1;
-
 export default function HistorialScreen() {
   const router = useRouter();
-  const { historial, loading } = useHistorial(PERFIL_ID);
+  const { perfilActivoId } = usePerfilActivo();
+  const perfilId = perfilActivoId ?? 1;
+  const { historial, loading } = useHistorial(perfilId);
 
   if (loading) {
     return (

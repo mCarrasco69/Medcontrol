@@ -8,12 +8,36 @@ export function getPerfiles(usuarioId) {
   return api.get(`/perfiles?usuario_id=${usuarioId}`);
 }
 
+export function getPerfilById(id) {
+  return api.get(`/perfiles/${id}`);
+}
+
+export function crearPerfil(datos) {
+  return api.post('/perfiles', datos);
+}
+
+export function actualizarPerfil(id, datos) {
+  return api.put(`/perfiles/${id}`, datos);
+}
+
+export function eliminarPerfil(id) {
+  return api.delete(`/perfiles/${id}`);
+}
+
 export function getMedicamentos(perfilId) {
   return api.get(`/medicamentos?perfil_id=${perfilId}`);
 }
 
 export function crearMedicamento(datos) {
   return api.post('/medicamentos', datos);
+}
+
+export function getMedicamentoById(id) {
+  return api.get(`/medicamentos/${id}`);
+}
+
+export function actualizarMedicamento(id, datos) {
+  return api.put(`/medicamentos/${id}`, datos);
 }
 
 export function eliminarMedicamento(id) {

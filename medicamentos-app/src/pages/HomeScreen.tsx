@@ -11,13 +11,14 @@ import { useRouter } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { useProximasTomas } from '../hooks';
+import { usePerfilActivo } from '../contexts/PerfilActivoContext';
 import { calcularTiempoRestante, formatHoraCorta } from '../utils';
-
-const PERFIL_ID = 1;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { proximas, loading, marcando, cargar, marcarTomada } = useProximasTomas(PERFIL_ID);
+  const { perfilActivoId } = usePerfilActivo();
+  const perfilId = perfilActivoId ?? 1;
+  const { proximas, loading, marcando, cargar, marcarTomada } = useProximasTomas(perfilId);
 
   const proxima = proximas[0];
   const resto = proximas.slice(1);

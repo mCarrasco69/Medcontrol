@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,11 +13,8 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
-import dayjs from 'dayjs';
 
-import { crearMedicamento } from '../services/api';
-import { agendarRecordatoriosMedicamento } from '../services/notificaciones';
-import { usePerfilActivo } from '../contexts/PerfilActivoContext';
+import { getMedicamentoById, actualizarMedicamento } from '../services/api';
 
 const FRECUENCIAS = ['Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Cada 6 horas', 'Una vez al día'];
 
@@ -29,17 +26,17 @@ type FormData = {
   notas: string;
 };
 
-export default function AgregarMedicamentoScreen() {
+export default function EditarMedicamentoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { perfil_id } = useLocalSearchParams<{ perfil_id?: string }>();
-  const { perfilActivoId } = usePerfilActivo();
-  // Si viene de PerfilDetalle, usa el perfil_id de la URL; si no, el perfil activo
-  const perfilId = perfil_id ? Number(perfil_id) : (perfilActivoId ?? 1);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const medicamentoId = Number(id);
+
   const [guardando, setGuardando] = useState(false);
+  const [cargando, setCargando] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const { control, handleSubmit, setValue, watch } = useForm<FormData>({
+  const { control, handleSubmit, setValue, reset, watch } = useForm<FormData>({
     defaultValues: {
       nombre: '',
       dosis: '',
@@ -51,39 +48,51 @@ export default function AgregarMedicamentoScreen() {
 
   const frecuenciaValue = watch('frecuencia');
 
+  useEffect(() => {
+    if (!medicamentoId) return;
+    (async () => {
+      try {
+        const { data } = await getMedicamentoById(medicamentoId);
+        reset({
+          nombre: data.nombre ?? '',
+          dosis: data.dosis ?? '',
+          frecuencia: data.frecuencia ?? '',
+          duracion_dias: data.duracion_dias != null ? String(data.duracion_dias) : '',
+          notas: data.notas ?? '',
+        });
+      } catch (error) {
+        console.error('Error al cargar medicamento:', error);
+      } finally {
+        setCargando(false);
+      }
+    })();
+  }, [medicamentoId, reset]);
+
   const onSubmit = async (data: FormData) => {
     setGuardando(true);
     try {
-      const horaActual = dayjs().format('HH:mm');
-      const horarios = [horaActual];
-      const response = await crearMedicamento({
-        perfil_id: perfilId,
+      await actualizarMedicamento(medicamentoId, {
         nombre: data.nombre,
         dosis: data.dosis,
         frecuencia: data.frecuencia,
         duracion_dias: data.duracion_dias ? Number(data.duracion_dias) : null,
         notas: data.notas || null,
-        horarios,
       });
-      // Agendar notificaciones para los horarios del medicamento
-      await agendarRecordatoriosMedicamento({
-        id: response.data.id,
-        nombre: data.nombre,
-        dosis: data.dosis,
-        horarios,
-      });
-      // Si vino con perfil_id, volver atrás al detalle; si no, ir a mis-pastillas
-      if (perfil_id) {
-        router.back();
-      } else {
-        router.push('/mis-pastillas' as never);
-      }
+      router.push('/mis-pastillas' as never);
     } catch (error) {
-      console.error('Error al guardar medicamento:', error);
+      console.error('Error al actualizar medicamento:', error);
     } finally {
       setGuardando(false);
     }
   };
+
+  if (cargando) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#10b981" />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -99,7 +108,7 @@ export default function AgregarMedicamentoScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Agregar medicamento</Text>
+        <Text style={styles.headerTitle}>Editar medicamento</Text>
         <View style={styles.headerSpacer} />
       </View>
         {/* 1. Nombre */}
@@ -224,7 +233,7 @@ export default function AgregarMedicamentoScreen() {
           ) : (
             <>
               <Text style={styles.guardarIcon}>✓</Text>
-              <Text style={styles.guardarText}>Guardar</Text>
+              <Text style={styles.guardarText}>Guardar cambios</Text>
             </>
           )}
         </TouchableOpacity>
@@ -236,6 +245,12 @@ export default function AgregarMedicamentoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#edf2f7',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#edf2f7',
   },
   header: {

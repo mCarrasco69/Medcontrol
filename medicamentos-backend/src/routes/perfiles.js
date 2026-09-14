@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
+// Normalizar fecha: convierte ISO (2025-01-02T06:00:00.000Z) a YYYY-MM-DD
+function normalizarFecha(fecha) {
+  if (!fecha) return null;
+  const str = String(fecha);
+  if (str.includes('T')) {
+    return str.split('T')[0];
+  }
+  return str || null;
+}
+
 // GET /api/perfiles?usuario_id=1 -> lista todos los perfiles de una cuenta
 router.get('/', async (req, res) => {
   const { usuario_id } = req.query;
@@ -40,7 +50,7 @@ router.post('/', async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO perfiles (usuario_id, nombre, relacion, fecha_nacimiento, avatar_url)
        VALUES (?, ?, ?, ?, ?)`,
-      [usuario_id, nombre, relacion || null, fecha_nacimiento || null, avatar_url || null]
+      [usuario_id, nombre, relacion || null, normalizarFecha(fecha_nacimiento), avatar_url || null]
     );
     res.status(201).json({ id: result.insertId, usuario_id, nombre, relacion });
   } catch (err) {
@@ -55,7 +65,7 @@ router.put('/:id', async (req, res) => {
     await pool.query(
       `UPDATE perfiles SET nombre = ?, relacion = ?, fecha_nacimiento = ?, avatar_url = ?
        WHERE id = ?`,
-      [nombre, relacion, fecha_nacimiento, avatar_url, req.params.id]
+      [nombre, relacion || null, normalizarFecha(fecha_nacimiento), avatar_url || null, req.params.id]
     );
     res.json({ message: 'Perfil actualizado' });
   } catch (err) {

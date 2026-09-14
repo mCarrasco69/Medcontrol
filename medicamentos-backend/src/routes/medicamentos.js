@@ -102,7 +102,7 @@ router.put('/:id', async (req, res) => {
     await pool.query(
       `UPDATE medicamentos SET nombre = ?, dosis = ?, frecuencia = ?, duracion_dias = ?, notas = ?
        WHERE id = ?`,
-      [nombre, dosis, frecuencia, duracion_dias, notas, req.params.id]
+      [nombre, dosis, frecuencia, duracion_dias || null, notas || null, req.params.id]
     );
     res.json({ message: 'Medicamento actualizado' });
   } catch (err) {
