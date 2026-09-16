@@ -1,7 +1,12 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
+
+const metroHost = Constants.expoConfig?.hostUri?.split(':')[0];
+const developmentURL = metroHost ? `http://${metroHost}:3000/api` : null;
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL,
+  baseURL: (__DEV__ && developmentURL) || process.env.EXPO_PUBLIC_API_URL,
+  timeout: 10000,
 });
 
 export function getPerfiles(usuarioId) {
@@ -50,6 +55,10 @@ export function getProximasTomas(perfilId) {
 
 export function marcarComoTomada(historialId) {
   return api.put(`/historial/${historialId}/tomada`);
+}
+
+export function marcarComoOmitida(historialId) {
+  return api.put(`/historial/${historialId}/omitida`);
 }
 
 export function getHistorial(perfilId) {

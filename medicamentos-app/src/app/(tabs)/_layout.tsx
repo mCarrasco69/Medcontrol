@@ -5,6 +5,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: '#10b981',
         tabBarInactiveTintColor: '#94a3b8',
         tabBarStyle: {
@@ -24,7 +25,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="mis-pastillas"
         options={{
-          title: 'Pastillas',
+          title: 'Medicamentos',
           tabBarIcon: ({ color }) => (
             <View style={[styles.pillIcon, { backgroundColor: color }]} />
           ),
@@ -42,7 +43,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="familia"
         options={{
-          title: 'Familia',
+          title: 'Perfiles',
           tabBarIcon: ({ color }) => (
             <View style={[styles.peopleIcon, { borderColor: color }]}>
               <View style={[styles.personDot, { backgroundColor: color }]} />

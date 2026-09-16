@@ -9,6 +9,7 @@ const ESTILOS_ESTADO: Record<EstadoToma, { bg: string; text: string; label: stri
   pendiente: { bg: '#fef3c7', text: '#64748b', label: 'Pendiente' },
   tomada: { bg: '#e6fbf7', text: '#059669', label: 'Tomada' },
   omitida: { bg: '#e2e8f0', text: '#94a3b8', label: 'Omitida' },
+  atrasada: { bg: '#fee2e2', text: '#dc2626', label: 'Atrasada' },
 };
 
 export default function EstadoBadge({ estado }: EstadoBadgeProps) {

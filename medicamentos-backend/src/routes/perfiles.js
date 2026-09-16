@@ -52,7 +52,15 @@ router.post('/', async (req, res) => {
        VALUES (?, ?, ?, ?, ?)`,
       [usuario_id, nombre, relacion || null, normalizarFecha(fecha_nacimiento), avatar_url || null]
     );
-    res.status(201).json({ id: result.insertId, usuario_id, nombre, relacion });
+    res.status(201).json({
+      id: result.insertId,
+      usuario_id,
+      nombre,
+      relacion: relacion || null,
+      fecha_nacimiento: normalizarFecha(fecha_nacimiento),
+      avatar_url: avatar_url || null,
+      created_at: new Date().toISOString(),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

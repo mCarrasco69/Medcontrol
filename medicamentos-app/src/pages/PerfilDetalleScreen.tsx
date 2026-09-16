@@ -112,7 +112,7 @@ export default function PerfilDetalleScreen() {
               <View style={styles.cardInfo}>
                 <Text style={styles.medName}>{med.nombre}</Text>
                 <Text style={styles.medDose}>
-                  {med.dosis} · {med.frecuencia}
+                  {med.dosis}{med.unidad ? ` ${med.unidad}` : ''} · Tomar {med.cantidad ?? 1} {med.presentacion ?? 'unidad'} · {med.frecuencia}
                 </Text>
               </View>
             </View>

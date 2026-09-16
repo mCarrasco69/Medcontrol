@@ -2,6 +2,49 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
+// Normalizar fecha: convierte el Date de MySQL a string "YYYY-MM-DD HH:mm:ss" en hora local
+// (mysql2 devuelve Date objects que JSON.stringify convierte a ISO con Z de UTC, causando desfase)
+function normalizarFecha(fecha) {
+  if (!fecha) return null;
+  if (typeof fecha === 'string') {
+    // Si ya viene como string, quitar la Z si la tiene
+    return fecha.replace('T', ' ').replace(/\.000Z$/, '');
+  }
+  // Si es Date, formatear en hora local
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())} ${pad(fecha.getHours())}:${pad(fecha.getMinutes())}:${pad(fecha.getSeconds())}`;
+}
+
+function horasDeFrecuencia(frecuencia) {
+  const match = String(frecuencia || '').match(/\d+/);
+  return Math.max(Number(match?.[0]) || 8, 1);
+}
+
+async function asegurarProximasTomas(perfilId) {
+  const [medicamentos] = await pool.query(
+    `SELECT id, frecuencia FROM medicamentos
+     WHERE perfil_id = ? AND activo = TRUE
+       AND (duracion_dias IS NULL OR DATE_ADD(created_at, INTERVAL duracion_dias DAY) >= NOW())`,
+    [perfilId]
+  );
+
+  for (const medicamento of medicamentos) {
+    const [pendientes] = await pool.query(
+      `SELECT id FROM historial_tomas
+       WHERE medicamento_id = ? AND estado = 'pendiente' AND fecha_programada >= NOW()
+       LIMIT 1`,
+      [medicamento.id]
+    );
+    if (pendientes.length > 0) continue;
+
+    await pool.query(
+      `INSERT INTO historial_tomas (medicamento_id, perfil_id, fecha_programada, estado)
+       VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR), 'pendiente')`,
+      [medicamento.id, perfilId, horasDeFrecuencia(medicamento.frecuencia)]
+    );
+  }
+}
+
 // GET /api/historial/proximas?perfil_id=1 -> próximas tomas pendientes (pantalla home)
 router.get('/proximas', async (req, res) => {
   const { perfil_id } = req.query;
@@ -9,16 +52,24 @@ router.get('/proximas', async (req, res) => {
     return res.status(400).json({ error: 'perfil_id es requerido' });
   }
   try {
+    await pool.query(
+      `UPDATE historial_tomas SET estado = 'atrasada'
+       WHERE perfil_id = ? AND estado = 'pendiente' AND fecha_programada < NOW()`,
+      [perfil_id]
+    );
+    await asegurarProximasTomas(perfil_id);
     const [rows] = await pool.query(
-      `SELECT h.id, h.fecha_programada, h.estado, m.nombre, m.dosis
+      `SELECT h.id, h.fecha_programada, h.estado, m.nombre, m.dosis, m.unidad, m.presentacion, m.cantidad, m.frecuencia
        FROM historial_tomas h
        JOIN medicamentos m ON m.id = h.medicamento_id
-       WHERE h.perfil_id = ? AND h.estado = 'pendiente'
+       WHERE h.perfil_id = ? AND h.estado = 'pendiente' AND h.fecha_programada >= NOW()
        ORDER BY h.fecha_programada ASC
        LIMIT 10`,
       [perfil_id]
     );
-    res.json(rows);
+    // Normalizar fechas para evitar desfase de zona horaria
+    const normalizadas = rows.map((r) => ({ ...r, fecha_programada: normalizarFecha(r.fecha_programada) }));
+    res.json(normalizadas);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -32,7 +83,7 @@ router.get('/', async (req, res) => {
   }
   try {
     const [rows] = await pool.query(
-      `SELECT h.id, h.fecha_programada, h.fecha_tomada, h.estado, m.nombre, m.dosis
+      `SELECT h.id, h.fecha_programada, h.fecha_tomada, h.estado, m.nombre, m.dosis, m.unidad, m.presentacion, m.cantidad, m.frecuencia
        FROM historial_tomas h
        JOIN medicamentos m ON m.id = h.medicamento_id
        WHERE h.perfil_id = ?
@@ -40,7 +91,12 @@ router.get('/', async (req, res) => {
        LIMIT 100`,
       [perfil_id]
     );
-    res.json(rows);
+    const normalizadas = rows.map((r) => ({
+      ...r,
+      fecha_programada: normalizarFecha(r.fecha_programada),
+      fecha_tomada: normalizarFecha(r.fecha_tomada),
+    }));
+    res.json(normalizadas);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

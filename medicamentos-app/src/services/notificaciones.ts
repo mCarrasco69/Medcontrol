@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-const CHANNEL_ID = 'recordatorios-tomas';
+const CHANNEL_ID = 'recordatorios-tomas-v2';
 
 // Detectar si estamos en Expo Go (las push notifications no funcionan ahí)
 function isExpoGo(): boolean {
@@ -69,12 +69,49 @@ export async function configurarCanalNotificaciones() {
     if (!Notifications) return;
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: 'Recordatorios de tomas',
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#10b981',
+      lockScreenVisibility: Notifications.AndroidImportance.PUBLIC,
+      bypassDnd: true,
+      showBadge: true,
     });
   } catch (e) {
     console.warn('No se pudo configurar canal de notificaciones:', e);
+  }
+}
+
+// Disparar una notificación inmediata (para pruebas/demo)
+export async function probarNotificacion(): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  if (isExpoGo()) {
+    console.warn('Las notificaciones no funcionan en Expo Go. Usa un dev build.');
+    return null;
+  }
+  try {
+    const Notifications = getNotifications();
+    if (!Notifications) return null;
+    const permitido = await solicitarPermisosNotificaciones();
+    if (!permitido) {
+      console.warn('Permiso de notificaciones no concedido');
+      return null;
+    }
+    await configurarCanalNotificaciones();
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Recordatorio de prueba 💊',
+        body: 'Si ves esto, las notificaciones funcionan correctamente.',
+        data: { url: '/mis-pastillas' },
+        sound: true,
+        channelId: CHANNEL_ID,
+      },
+      trigger: null,
+    });
+    return id;
+  } catch (e) {
+    console.warn('No se pudo disparar notificación de prueba:', e);
+    return null;
   }
 }
 
@@ -83,6 +120,9 @@ export async function agendarRecordatorioToma(params: {
   medicamentoId: number;
   nombre: string;
   dosis: string;
+  unidad?: string | null;
+  presentacion?: string;
+  cantidad: number;
   hora: string; // formato "HH:mm"
 }): Promise<string | null> {
   if (Platform.OS === 'web') return null;
@@ -90,7 +130,7 @@ export async function agendarRecordatorioToma(params: {
   try {
     const Notifications = getNotifications();
     if (!Notifications) return null;
-    const { medicamentoId, nombre, dosis, hora } = params;
+    const { medicamentoId, nombre, dosis, unidad, presentacion, cantidad, hora } = params;
     const [hh, mm] = hora.split(':').map(Number);
 
     const trigger = {
@@ -103,9 +143,10 @@ export async function agendarRecordatorioToma(params: {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Hora de tomar tu medicamento 💊',
-        body: `${nombre} · ${dosis}`,
+        body: `${nombre} · ${dosis}${unidad ? ` ${unidad}` : ''} · Tomar ${cantidad} ${presentacion ?? 'unidad'}`,
         data: { medicamentoId, hora, url: '/mis-pastillas' },
         sound: true,
+        channelId: CHANNEL_ID,
       },
       trigger,
     });
@@ -147,6 +188,9 @@ export async function agendarRecordatoriosMedicamento(medicamento: {
   id: number;
   nombre: string;
   dosis: string;
+  unidad?: string | null;
+  presentacion?: string;
+  cantidad: number;
   horarios: Array<string | { hora: string }>;
 }): Promise<string[]> {
   const ids: string[] = [];
@@ -158,6 +202,9 @@ export async function agendarRecordatoriosMedicamento(medicamento: {
       medicamentoId: medicamento.id,
       nombre: medicamento.nombre,
       dosis: medicamento.dosis,
+      unidad: medicamento.unidad,
+      presentacion: medicamento.presentacion,
+      cantidad: medicamento.cantidad,
       hora: horaStr,
     });
     if (id) ids.push(id);

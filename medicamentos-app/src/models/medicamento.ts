@@ -3,6 +3,9 @@ export interface Medicamento {
   perfil_id: number;
   nombre: string;
   dosis: string;
+  unidad: string | null;
+  presentacion: string;
+  cantidad: number;
   frecuencia: string;
   duracion_dias: number | null;
   notas: string | null;
@@ -21,6 +24,9 @@ export interface CrearMedicamentoDTO {
   perfil_id: number;
   nombre: string;
   dosis: string;
+  unidad: string | null;
+  presentacion: string;
+  cantidad: number;
   frecuencia: string;
   duracion_dias: number | null;
   notas: string | null;

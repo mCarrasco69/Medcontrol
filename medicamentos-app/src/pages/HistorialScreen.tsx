@@ -8,17 +8,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { useHistorial } from '../hooks';
+import { useHistorial, useProximasTomas } from '../hooks';
 import { usePerfilActivo } from '../contexts/PerfilActivoContext';
 import { EstadoBadge, PillIcon } from '../components';
 import { formatFechaProgramada } from '../utils';
 
-export default function HistorialScreen() {
-  const router = useRouter();
-  const { perfilActivoId } = usePerfilActivo();
-  const perfilId = perfilActivoId ?? 1;
+function HistorialCompleto({ perfilId }: { perfilId: number }) {
   const { historial, loading } = useHistorial(perfilId);
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -26,47 +22,85 @@ export default function HistorialScreen() {
       </View>
     );
   }
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>Historial</Text>
         <View style={styles.headerSpacer} />
       </View>
-
-      {/* Lista */}
       {historial.length === 0 ? (
         <Text style={styles.emptyText}>No hay registros en el historial</Text>
       ) : (
-        historial.map((item) => (
-          <View key={item.id} style={styles.card}>
-            <View style={styles.cardTop}>
-              <PillIcon size={40} backgroundColor="#e0f2fe" />
-              <View style={styles.cardInfo}>
-                <Text style={styles.medName}>{item.nombre}</Text>
-                <Text style={styles.medDose}>{item.dosis}</Text>
-              </View>
-            </View>
-
-            <View style={styles.cardBottom}>
-              <View style={styles.fechaRow}>
-                <Text style={styles.clockIcon}>⏰</Text>
-                <Text style={styles.fechaText}>
-                  {formatFechaProgramada(item.fecha_programada)}
-                </Text>
-              </View>
-
-              <EstadoBadge estado={item.estado} />
-            </View>
-          </View>
-        ))
+        historial.map((item) => <TomaCard key={item.id} item={item} />)
       )}
     </ScrollView>
   );
+}
+
+function ProximasTomas({ perfilId }: { perfilId: number }) {
+  const { proximas, loading } = useProximasTomas(perfilId);
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <BackButton />
+        <Text style={styles.headerTitle}>Próximas tomas</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      {proximas.length === 0 ? (
+        <Text style={styles.emptyText}>No hay próximas tomas pendientes</Text>
+      ) : (
+        proximas.map((item) => <TomaCard key={item.id} item={item} />)
+      )}
+    </ScrollView>
+  );
+}
+
+function BackButton() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity onPress={() => router.back()}>
+      <Text style={styles.backIcon}>←</Text>
+    </TouchableOpacity>
+  );
+}
+
+function TomaCard({ item }: { item: any }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <PillIcon size={40} backgroundColor="#e0f2fe" />
+        <View style={styles.cardInfo}>
+          <Text style={styles.medName}>{item.nombre}</Text>
+          <Text style={styles.medDose}>{item.dosis}{item.unidad ? ` ${item.unidad}` : ''} · {item.cantidad ?? 1} {item.presentacion ?? 'unidad'}</Text>
+        </View>
+      </View>
+      <View style={styles.cardBottom}>
+        <View style={styles.fechaRow}>
+          <Text style={styles.clockIcon}>⏰</Text>
+          <Text style={styles.fechaText}>
+            {formatFechaProgramada(item.fecha_programada)}
+          </Text>
+        </View>
+        <EstadoBadge estado={item.estado} />
+      </View>
+    </View>
+  );
+}
+
+export default function HistorialScreen({ soloPendientes = false }: { soloPendientes?: boolean }) {
+  const { perfilActivoId } = usePerfilActivo();
+  const perfilId = perfilActivoId ?? 1;
+  return soloPendientes
+    ? <ProximasTomas perfilId={perfilId} />
+    : <HistorialCompleto perfilId={perfilId} />;
 }
 
 const styles = StyleSheet.create({

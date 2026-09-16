@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS `medicamentos` (
   `perfil_id` int NOT NULL,
   `nombre` varchar(150) NOT NULL,
   `dosis` varchar(50) NOT NULL,
+  `unidad` varchar(10) DEFAULT NULL,
+  `presentacion` varchar(30) DEFAULT 'tableta',
+  `cantidad` int DEFAULT '1',
   `frecuencia` varchar(50) NOT NULL,
   `duracion_dias` int DEFAULT NULL,
   `notas` text,
@@ -66,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `horarios_toma` (
   `medicamento_id` int NOT NULL,
   `hora` time NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `medicamento_id` (`medicamento_id`),
+  UNIQUE KEY `medicamento_id` (`medicamento_id`),
   CONSTRAINT `horarios_toma_ibfk_1` FOREIGN KEY (`medicamento_id`) REFERENCES `medicamentos` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -79,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `historial_tomas` (
   `perfil_id` int NOT NULL,
   `fecha_programada` datetime NOT NULL,
   `fecha_tomada` datetime DEFAULT NULL,
-  `estado` enum('pendiente','tomada','omitida') DEFAULT 'pendiente',
+  `estado` enum('pendiente','tomada','omitida','atrasada') DEFAULT 'pendiente',
   PRIMARY KEY (`id`),
   KEY `medicamento_id` (`medicamento_id`),
   KEY `perfil_id` (`perfil_id`),

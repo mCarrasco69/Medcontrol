@@ -24,8 +24,9 @@ export function usePerfiles(usuarioId: number) {
 
   const crear = useCallback(
     async (datos: { nombre: string; relacion?: string | null; fecha_nacimiento?: string | null }) => {
-      await apiCrear({ usuario_id: usuarioId, ...datos });
+      const response = await apiCrear({ usuario_id: usuarioId, ...datos });
       await cargar();
+      return response.data;
     },
     [usuarioId, cargar],
   );

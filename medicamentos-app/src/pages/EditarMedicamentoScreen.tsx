@@ -13,14 +13,27 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { getMedicamentoById, actualizarMedicamento } from '../services/api';
 
-const FRECUENCIAS = ['Cada 8 horas', 'Cada 12 horas', 'Cada 24 horas', 'Cada 6 horas', 'Una vez al día'];
+const FRECUENCIAS_RAPIDAS = [1, 2, 3, 4, 6, 8, 12, 24];
+const UNIDADES = ['mg', 'g', 'ml', 'mcg', 'UI'];
+const PRESENTACIONES = ['tableta', 'cápsula', 'gotas', 'aplicación'];
+
+// Extrae el número de horas de un string como "Cada 8 horas" → "8"
+function extraerHoras(frecuencia: string | undefined): string {
+  if (!frecuencia) return '';
+  const match = frecuencia.match(/(\d+)/);
+  return match ? match[1] : '';
+}
 
 type FormData = {
   nombre: string;
   dosis: string;
+  unidad: string;
+  presentacion: string;
+  cantidad: string;
   frecuencia: string;
   duracion_dias: string;
   notas: string;
@@ -34,12 +47,16 @@ export default function EditarMedicamentoScreen() {
 
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [horaPrimeraToma, setHoraPrimeraToma] = useState(new Date());
+  const [mostrarHora, setMostrarHora] = useState(false);
 
   const { control, handleSubmit, setValue, reset, watch } = useForm<FormData>({
     defaultValues: {
       nombre: '',
       dosis: '',
+      unidad: 'mg',
+      presentacion: 'tableta',
+      cantidad: '1',
       frecuencia: '',
       duracion_dias: '',
       notas: '',
@@ -53,10 +70,20 @@ export default function EditarMedicamentoScreen() {
     (async () => {
       try {
         const { data } = await getMedicamentoById(medicamentoId);
+        const horario = data.horarios?.[0]?.hora;
+        if (horario) {
+          const [hh, mm] = String(horario).split(':').map(Number);
+          const fechaHora = new Date();
+          fechaHora.setHours(hh || 0, mm || 0, 0, 0);
+          setHoraPrimeraToma(fechaHora);
+        }
         reset({
           nombre: data.nombre ?? '',
           dosis: data.dosis ?? '',
-          frecuencia: data.frecuencia ?? '',
+          unidad: data.unidad ?? 'mg',
+          presentacion: data.presentacion ?? 'tableta',
+          cantidad: data.cantidad != null ? String(data.cantidad) : '1',
+          frecuencia: extraerHoras(data.frecuencia),
           duracion_dias: data.duracion_dias != null ? String(data.duracion_dias) : '',
           notas: data.notas ?? '',
         });
@@ -74,9 +101,13 @@ export default function EditarMedicamentoScreen() {
       await actualizarMedicamento(medicamentoId, {
         nombre: data.nombre,
         dosis: data.dosis,
-        frecuencia: data.frecuencia,
+        unidad: data.unidad,
+        presentacion: data.presentacion,
+        cantidad: data.cantidad ? Number(data.cantidad) : 1,
+        frecuencia: `Cada ${data.frecuencia} horas`,
         duracion_dias: data.duracion_dias ? Number(data.duracion_dias) : null,
         notas: data.notas || null,
+        horarios: [String(horaPrimeraToma.getHours()).padStart(2, '0') + ':' + String(horaPrimeraToma.getMinutes()).padStart(2, '0')],
       });
       router.push('/mis-pastillas' as never);
     } catch (error) {
@@ -97,11 +128,14 @@ export default function EditarMedicamentoScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <ScrollView
         style={styles.form}
         contentContainerStyle={[styles.formContent, { paddingTop: 16 + insets.top }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
       {/* Header */}
       <View style={styles.header}>
@@ -142,51 +176,164 @@ export default function EditarMedicamentoScreen() {
                 style={[styles.input, error && styles.inputError]}
                 value={value}
                 onChangeText={onChange}
-                placeholder="Ej: 500mg"
+                placeholder="Ej: 500"
+                keyboardType="numeric"
               />
               {error && <Text style={styles.errorText}>{error.message}</Text>}
             </View>
           )}
         />
 
-        {/* 3. Frecuencia (dropdown) */}
-        <Text style={styles.label}>Frecuencia</Text>
+        <Text style={styles.label}>Unidad de dosis</Text>
         <Controller
           control={control}
-          name="frecuencia"
-          rules={{ required: 'Este campo es obligatorio' }}
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View>
-              <TouchableOpacity
-                style={[styles.dropdown, error && styles.inputError]}
-                onPress={() => setDropdownOpen(!dropdownOpen)}
-              >
-                <Text style={value ? styles.dropdownText : styles.dropdownPlaceholder}>
-                  {value || 'Seleccioná una frecuencia'}
-                </Text>
-                <Text style={styles.dropdownArrow}>{dropdownOpen ? '▲' : '▼'}</Text>
-              </TouchableOpacity>
-              {error && <Text style={styles.errorText}>{error.message}</Text>}
-
-              {dropdownOpen && (
-                <View style={styles.dropdownList}>
-                  {FRECUENCIAS.map((freq) => (
-                    <TouchableOpacity
-                      key={freq}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        onChange(freq);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{freq}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+          name="unidad"
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.frecuenciaChips}>
+              {UNIDADES.map((unidad) => (
+                <TouchableOpacity key={unidad} style={[styles.chip, value === unidad && styles.chipActive]} onPress={() => onChange(unidad)}>
+                  <Text style={[styles.chipText, value === unidad && styles.chipTextActive]}>{unidad}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         />
+
+        <Text style={styles.label}>Presentación</Text>
+        <Controller
+          control={control}
+          name="presentacion"
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.frecuenciaChips}>
+              {PRESENTACIONES.map((presentacion) => (
+                <TouchableOpacity key={presentacion} style={[styles.chip, value === presentacion && styles.chipActive]} onPress={() => onChange(presentacion)}>
+                  <Text style={[styles.chipText, value === presentacion && styles.chipTextActive]}>{presentacion}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        />
+
+        {/* 2.5 Cantidad (compuestos a tomar) */}
+        <Text style={styles.label}>Cantidad a tomar</Text>
+        <Controller
+          control={control}
+          name="cantidad"
+          rules={{
+            required: 'Este campo es obligatorio',
+            validate: (v) => {
+              const n = Number(v);
+              if (isNaN(n) || n < 1 || n > 50) return 'Ingresa entre 1 y 50';
+              return true;
+            },
+          }}
+          render={({ field: { onChange, value }, fieldState: { error } }) => (
+            <View>
+              <View style={styles.frecuenciaRow}>
+                <TextInput
+                  style={[styles.frecuenciaInput, error && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder="Ej: 1"
+                  keyboardType="numeric"
+                />
+                <Text style={styles.frecuenciaLabel}>unidades</Text>
+              </View>
+              {error && <Text style={styles.errorText}>{error.message}</Text>}
+
+              <View style={styles.frecuenciaChips}>
+                {[1, 2, 3, 4, 5].map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[
+                      styles.chip,
+                      value === String(c) && styles.chipActive,
+                    ]}
+                    onPress={() => onChange(String(c))}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        value === String(c) && styles.chipTextActive,
+                      ]}
+                    >
+                      {c}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        />
+
+        {/* 3. Frecuencia (horas entre tomas) */}
+        <Text style={styles.label}>Horas entre cada toma</Text>
+        <Controller
+          control={control}
+          name="frecuencia"
+          rules={{
+            required: 'Este campo es obligatorio',
+            validate: (v) => {
+              const n = Number(v);
+              if (isNaN(n) || n < 1 || n > 72) return 'Ingresa entre 1 y 72 horas';
+              return true;
+            },
+          }}
+          render={({ field: { onChange, value }, fieldState: { error } }) => (
+            <View>
+              <View style={styles.frecuenciaRow}>
+                <TextInput
+                  style={[styles.frecuenciaInput, error && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder="Ej: 8"
+                  keyboardType="numeric"
+                />
+                <Text style={styles.frecuenciaLabel}>horas</Text>
+              </View>
+              {error && <Text style={styles.errorText}>{error.message}</Text>}
+
+              {/* Botones rápidos */}
+              <View style={styles.frecuenciaChips}>
+                {FRECUENCIAS_RAPIDAS.map((h) => (
+                  <TouchableOpacity
+                    key={h}
+                    style={[
+                      styles.chip,
+                      value === String(h) && styles.chipActive,
+                    ]}
+                    onPress={() => onChange(String(h))}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        value === String(h) && styles.chipTextActive,
+                      ]}
+                    >
+                      {h}h
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        />
+
+        <Text style={styles.label}>Hora de la primera toma</Text>
+        <TouchableOpacity style={styles.input} onPress={() => setMostrarHora(true)}>
+          <Text>{String(horaPrimeraToma.getHours()).padStart(2, '0')}:{String(horaPrimeraToma.getMinutes()).padStart(2, '0')}</Text>
+        </TouchableOpacity>
+        {mostrarHora && (
+          <DateTimePicker
+            value={horaPrimeraToma}
+            mode="time"
+            is24Hour
+            onChange={(_, fecha) => {
+              setMostrarHora(Platform.OS === 'ios');
+              if (fecha) setHoraPrimeraToma(fecha);
+            }}
+          />
+        )}
 
         {/* 4. Duración en días (opcional) */}
         <Text style={styles.label}>Duración en días (opcional)</Text>
@@ -319,38 +466,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dropdownText: {
-    fontSize: 15,
-    fontFamily: 'Inter-Regular',
-    color: '#1e293b',
+  frecuenciaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  dropdownPlaceholder: {
-    fontSize: 15,
-    fontFamily: 'Inter-Regular',
-    color: '#94a3b8',
-  },
-  dropdownArrow: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  dropdownList: {
+  frecuenciaInput: {
+    flex: 1,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 12,
-    marginTop: 4,
-    overflow: 'hidden',
-  },
-  dropdownItem: {
-    paddingVertical: 12,
     paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  dropdownItemText: {
+    paddingVertical: 12,
     fontSize: 15,
     fontFamily: 'Inter-Regular',
     color: '#1e293b',
+    marginRight: 8,
+  },
+  frecuenciaLabel: {
+    fontSize: 15,
+    fontFamily: 'Inter-Medium',
+    color: '#64748b',
+  },
+  frecuenciaChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipActive: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  chipText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#64748b',
+  },
+  chipTextActive: {
+    color: '#ffffff',
   },
   guardarBtn: {
     flexDirection: 'row',

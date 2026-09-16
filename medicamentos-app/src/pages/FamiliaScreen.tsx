@@ -94,7 +94,8 @@ export default function FamiliaScreen() {
         fecha_nacimiento: fechaNacimiento || null,
       };
       if (modo === 'crear') {
-        await crear(datos);
+        const nuevoPerfil = await crear(datos);
+        setPerfilActivo(nuevoPerfil);
       } else if (modo === 'editar' && selectedPerfil !== null) {
         await actualizar(selectedPerfil, datos);
       }
@@ -139,12 +140,10 @@ export default function FamiliaScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Familia</Text>
-          <Text style={styles.counter}>{perfiles.length} miembros</Text>
-        </View>
+        <Text style={styles.title}>Perfiles</Text>
+        <Text style={styles.counter}>{perfiles.length} perfiles registrados</Text>
         <TouchableOpacity style={styles.agregarBtn} onPress={abrirCrear}>
-          <Text style={styles.agregarBtnText}>+ Agregar</Text>
+          <Text style={styles.agregarBtnText}>+ Agregar perfil</Text>
         </TouchableOpacity>
       </View>
 
@@ -356,9 +355,6 @@ const styles = StyleSheet.create({
 
   /* Header */
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 20,
   },
   title: {
@@ -373,13 +369,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   agregarBtn: {
+    alignItems: 'center',
     backgroundColor: '#10b981',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 14,
   },
   agregarBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
   },

@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useMedicamentos } from '../hooks';
 import { usePerfilActivo } from '../contexts/PerfilActivoContext';
@@ -17,7 +18,8 @@ import { formatHorarios } from '../utils';
 
 export default function MisPastillasScreen() {
   const router = useRouter();
-  const { perfilActivoId } = usePerfilActivo();
+  const insets = useSafeAreaInsets();
+  const { perfilActivoId, perfilActivo } = usePerfilActivo();
   const perfilId = perfilActivoId ?? 1;
   const { medicamentos, loading, eliminar } = useMedicamentos(perfilId);
   const [modalVisible, setModalVisible] = useState(false);
@@ -52,18 +54,17 @@ export default function MisPastillasScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: 16 + insets.top }]}>
       {/* 1. Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Mis Pastillas</Text>
-          <Text style={styles.counter}>{medicamentos.length} medicamentos</Text>
-        </View>
+        <Text style={styles.title}>Mis medicamentos</Text>
+        <Text style={styles.counter}>Perfil seleccionado: {perfilActivo?.nombre ?? 'Sin perfil'}</Text>
+        <Text style={styles.counter}>{medicamentos.length} medicamentos registrados</Text>
         <TouchableOpacity
           style={styles.agregarBtn}
           onPress={() => router.push('/agregar-medicamento' as never)}
         >
-          <Text style={styles.agregarBtnText}>+ Agregar</Text>
+          <Text style={styles.agregarBtnText}>+ Agregar medicamento</Text>
         </TouchableOpacity>
       </View>
 
@@ -78,7 +79,7 @@ export default function MisPastillasScreen() {
               <View style={styles.cardInfo}>
                 <Text style={styles.medName}>{med.nombre}</Text>
                 <Text style={styles.medDose}>
-                  {med.dosis} · {med.frecuencia}
+                  {med.dosis}{med.unidad ? ` ${med.unidad}` : ''} · Tomar {med.cantidad ?? 1} {med.presentacion ?? 'unidad'} · {med.frecuencia}
                 </Text>
               </View>
             </View>
@@ -181,9 +182,6 @@ const styles = StyleSheet.create({
 
   /* Header */
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 20,
   },
   title: {
@@ -198,13 +196,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   agregarBtn: {
+    alignItems: 'center',
     backgroundColor: '#10b981',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 14,
   },
   agregarBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
   },

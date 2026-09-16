@@ -22,17 +22,14 @@ export default function PerfilActivoProvider({ children }: PerfilActivoProviderP
     (async () => {
       try {
         const guardado = await AsyncStorage.getItem(STORAGE_KEY);
-        if (guardado) {
-          setPerfilActivoIdState(Number(guardado));
-        } else {
-          // No hay perfil guardado, cargar el primer perfil disponible
-          const { data } = await getPerfiles(USUARIO_ID);
-          const perfiles: Perfil[] = data ?? [];
-          if (perfiles.length > 0) {
-            setPerfilActivoIdState(perfiles[0].id);
-            setPerfilActivoState(perfiles[0]);
-            await AsyncStorage.setItem(STORAGE_KEY, String(perfiles[0].id));
-          }
+        const { data } = await getPerfiles(USUARIO_ID);
+        const perfiles: Perfil[] = data ?? [];
+        const perfilGuardado = perfiles.find((perfil) => perfil.id === Number(guardado));
+        const perfilInicial = perfilGuardado ?? perfiles[0] ?? null;
+        if (perfilInicial) {
+          setPerfilActivoIdState(perfilInicial.id);
+          setPerfilActivoState(perfilInicial);
+          await AsyncStorage.setItem(STORAGE_KEY, String(perfilInicial.id));
         }
       } catch (error) {
         console.error('Error al cargar perfil activo:', error);

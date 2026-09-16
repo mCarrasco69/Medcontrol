@@ -1,4 +1,4 @@
-export type EstadoToma = 'pendiente' | 'tomada' | 'omitida';
+export type EstadoToma = 'pendiente' | 'tomada' | 'omitida' | 'atrasada';
 
 export interface HistorialToma {
   id: number;
@@ -9,8 +9,12 @@ export interface HistorialToma {
   estado: EstadoToma;
   nombre?: string;
   dosis?: string;
+  unidad?: string | null;
+  presentacion?: string;
+  cantidad?: number;
+  frecuencia?: string;
   // Campos devueltos por el backend en el JOIN con medicamentos
   medicamento_nombre?: string;
   medicamento_dosis?: string;
-  medicamento?: { nombre: string; dosis: string };
+  medicamento?: { nombre: string; dosis: string; cantidad: number };
 }

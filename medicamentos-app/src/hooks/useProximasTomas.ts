@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { getProximasTomas, marcarComoTomada } from '../services/api';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { getProximasTomas, marcarComoOmitida, marcarComoTomada } from '../services/api';
 import type { HistorialToma } from '../models/historial';
 
 export function useProximasTomas(perfilId: number) {
@@ -8,6 +9,7 @@ export function useProximasTomas(perfilId: number) {
   const [marcando, setMarcando] = useState(false);
 
   const cargar = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await getProximasTomas(perfilId);
       setProximas(response.data ?? []);
@@ -30,9 +32,22 @@ export function useProximasTomas(perfilId: number) {
     }
   }, [cargar]);
 
-  useEffect(() => {
-    cargar();
+  const marcarOmitida = useCallback(async (historialId: number) => {
+    setMarcando(true);
+    try {
+      await marcarComoOmitida(historialId);
+      await cargar();
+    } finally {
+      setMarcando(false);
+    }
   }, [cargar]);
 
-  return { proximas, loading, marcando, cargar, marcarTomada };
+  useFocusEffect(
+    useCallback(() => {
+      setProximas([]);
+      cargar();
+    }, [cargar])
+  );
+
+  return { proximas, loading, marcando, cargar, marcarTomada, marcarOmitida };
 }
