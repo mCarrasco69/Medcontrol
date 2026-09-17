@@ -15,6 +15,7 @@ import { useProximasTomas } from '../hooks';
 import { usePerfilActivo } from '../contexts/PerfilActivoContext';
 import { calcularTiempoRestante, formatHoraCorta } from '../utils';
 import { probarNotificacion } from '../services/notificaciones';
+import EstadoBadge from '../components/EstadoBadge';
 
 function frecuenciaEnMinutos(frecuencia?: string) {
   const valor = Number(String(frecuencia || '').match(/\d+/)?.[0]) || 24;
@@ -26,9 +27,9 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { perfilActivoId, perfilActivo } = usePerfilActivo();
   const perfilId = perfilActivoId ?? 1;
-  const { proximas, loading, marcando, marcarTomada, marcarOmitida } = useProximasTomas(perfilId);
+  const { proximas, loading, marcando, marcarTomada } = useProximasTomas(perfilId);
 
-  const proxima = proximas[0];
+  const proxima = proximas.find((p) => p.estado === 'pendiente' || p.estado === 'atrasada');
 
   const [tiempoRestante, setTiempoRestante] = useState('--:--');
   const [colorContador, setColorContador] = useState({ borde: '#94a3b8', fondo: '#f8fafc' });
@@ -56,11 +57,6 @@ export default function HomeScreen() {
     const interval = setInterval(calcular, 1000);
     return () => clearInterval(interval);
   }, [proxima?.fecha_programada, proxima?.frecuencia]);
-
-  const tomarDosis = async () => {
-    if (!proxima) return;
-    await marcarTomada(proxima.id);
-  };
 
   if (loading) {
     return (
@@ -104,22 +100,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <View style={styles.tomaActions}>
-          <TouchableOpacity
-            style={styles.tomadoButton}
-            onPress={tomarDosis}
-            disabled={!proxima || marcando}
-          >
-            <Text style={styles.tomadoText}>{marcando ? 'Marcando...' : 'Tomada'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tomadoButton, styles.omitirButton]}
-            onPress={() => proxima && marcarOmitida(proxima.id)}
-            disabled={!proxima || marcando}
-          >
-            <Text style={styles.tomadoText}>Omitir</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* 3. Quick actions */}
@@ -179,10 +159,22 @@ export default function HomeScreen() {
                 <Text style={styles.upcomingDose}>
                   {item.dosis ?? item.medicamento_dosis ?? item.medicamento?.dosis ?? ''}{item.unidad ? ` ${item.unidad}` : ''} · Cantidad: {item.cantidad ?? item.medicamento?.cantidad ?? 1}
                 </Text>
+                {item.estado === 'omitida' ? <EstadoBadge estado="omitida" /> : null}
               </View>
-              <Text style={styles.upcomingTime}>
-                {item.fecha_programada ? formatHoraCorta(item.fecha_programada) : '--:--'}
-              </Text>
+              <View style={styles.upcomingActions}>
+                {item.estado !== 'omitida' ? (
+                  <Text style={styles.upcomingTime}>
+                    {item.fecha_programada ? formatHoraCorta(item.fecha_programada) : '--:--'}
+                  </Text>
+                ) : null}
+                <TouchableOpacity
+                  style={styles.tomarMiniBtn}
+                  onPress={() => marcarTomada(item.id)}
+                  disabled={marcando}
+                >
+                  <Text style={styles.tomarMiniText}>{marcando ? '...' : 'Tomar'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))
         )}
@@ -437,10 +429,25 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
+  upcomingActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   upcomingTime: {
     fontSize: 14,
     fontFamily: 'Inter-SemiBold',
     color: '#10b981',
+  },
+  tomarMiniBtn: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  tomarMiniText: {
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: '#ffffff',
   },
   emptyText: {
     fontSize: 14,

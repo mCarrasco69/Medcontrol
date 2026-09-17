@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -29,7 +30,7 @@ export default function FamiliaScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { perfiles, loading, crear, actualizar, eliminar } = usePerfiles(USUARIO_ID);
-  const { setPerfilActivo } = usePerfilActivo();
+  const { perfilActivo, setPerfilActivo } = usePerfilActivo();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modo, setModo] = useState<ModoModal>(null);
@@ -121,8 +122,20 @@ export default function FamiliaScreen() {
   };
 
   const verPastillas = (perfil: (typeof perfiles)[number]) => {
-    setPerfilActivo(perfil);
-    router.push(`/perfil-detalle?id=${perfil.id}` as never);
+    Alert.alert(
+      'Cambiar perfil',
+      `¿Estás seguro de que querés cambiar a ${perfil.nombre}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cambiar',
+          onPress: () => {
+            setPerfilActivo(perfil);
+            router.push('/mis-pastillas' as never);
+          },
+        },
+      ],
+    );
   };
 
   if (loading) {
@@ -140,6 +153,16 @@ export default function FamiliaScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.profileSelector}
+          onPress={() => router.push('/familia' as never)}
+        >
+          <View>
+            <Text style={styles.profileLabel}>Perfil seleccionado</Text>
+            <Text style={styles.profileName}>{perfilActivo?.nombre ?? 'Sin perfil'}</Text>
+          </View>
+          <Text style={styles.changeProfile}>Cambiar ›</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Perfiles</Text>
         <Text style={styles.counter}>{perfiles.length} perfiles registrados</Text>
         <TouchableOpacity style={styles.agregarBtn} onPress={abrirCrear}>
@@ -356,6 +379,33 @@ const styles = StyleSheet.create({
   /* Header */
   header: {
     marginBottom: 20,
+  },
+  profileSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dbe4ee',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  profileLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: '#64748b',
+  },
+  profileName: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1e293b',
+    marginTop: 2,
+  },
+  changeProfile: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#10b981',
   },
   title: {
     fontSize: 24,

@@ -14,7 +14,7 @@ import { EstadoBadge, PillIcon } from '../components';
 import { formatFechaProgramada } from '../utils';
 
 function HistorialCompleto({ perfilId }: { perfilId: number }) {
-  const { historial, loading } = useHistorial(perfilId);
+  const { historial, loading, limpiar } = useHistorial(perfilId);
   if (loading) {
     return (
       <View style={styles.center}>
@@ -27,7 +27,11 @@ function HistorialCompleto({ perfilId }: { perfilId: number }) {
       <View style={styles.header}>
         <BackButton />
         <Text style={styles.headerTitle}>Historial</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity onPress={limpiar} disabled={historial.length === 0}>
+          <Text style={[styles.limpiarText, historial.length === 0 && styles.limpiarDisabled]}>
+            Limpiar
+          </Text>
+        </TouchableOpacity>
       </View>
       {historial.length === 0 ? (
         <Text style={styles.emptyText}>No hay registros en el historial</Text>
@@ -133,6 +137,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Inter-Bold',
     color: '#1e293b',
+  },
+  limpiarText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#ef4444',
+  },
+  limpiarDisabled: {
+    color: '#cbd5e1',
   },
   headerSpacer: {
     width: 22,

@@ -104,6 +104,7 @@ export async function probarNotificacion(): Promise<string | null> {
         body: 'Si ves esto, las notificaciones funcionan correctamente.',
         data: { url: '/mis-pastillas' },
         sound: true,
+        priority: 'max',
         channelId: CHANNEL_ID,
       },
       trigger: null,
@@ -134,18 +135,18 @@ export async function agendarRecordatorioToma(params: {
     const [hh, mm] = hora.split(':').map(Number);
 
     const trigger = {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: hh,
       minute: mm,
-      repeats: true,
     };
 
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Hora de tomar tu medicamento 💊',
-        body: `${nombre} · ${dosis}${unidad ? ` ${unidad}` : ''} · Tomar ${cantidad} ${presentacion ?? 'unidad'}`,
+        body: `${nombre} · ${dosis}${unidad ? ` ${unidad}` : ''} · Tomar ${cantidad} ${presentacion ?? 'unidad'} · ${hora}`,
         data: { medicamentoId, hora, url: '/mis-pastillas' },
         sound: true,
+        priority: 'max',
         channelId: CHANNEL_ID,
       },
       trigger,

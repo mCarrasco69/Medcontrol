@@ -1,15 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-
-function proximaFechaParaHora(hora) {
-  const [hh, mm] = String(hora).slice(0, 5).split(':').map(Number);
-  const fecha = new Date();
-  fecha.setHours(hh || 0, mm || 0, 0, 0);
-  if (fecha <= new Date()) fecha.setDate(fecha.getDate() + 1);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())} ${pad(fecha.getHours())}:${pad(fecha.getMinutes())}:00`;
-}
+const { asegurarProximasTomas } = require('./historial');
 
 // GET /api/medicamentos?perfil_id=1 -> lista medicamentos de un perfil, con sus horarios
 router.get('/', async (req, res) => {
@@ -107,10 +99,7 @@ router.post('/', async (req, res) => {
 // PUT /api/medicamentos/:id -> editar datos y reprogramar su horario
 router.put('/:id', async (req, res) => {
   const { nombre, dosis, unidad, presentacion, cantidad, frecuencia, duracion_dias, notas, horarios } = req.body;
-  const match = String(frecuencia || '').match(/\d+/);
-  const horasIntervalo = Math.max(Number(match?.[0]) || 8, 1);
   const horarioSolicitado = Array.isArray(horarios) ? horarios[0] : null;
-  const fechaProgramada = horarioSolicitado ? proximaFechaParaHora(horarioSolicitado) : null;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -125,39 +114,18 @@ router.put('/:id', async (req, res) => {
     }
 
     const [medicamentos] = await conn.query('SELECT perfil_id FROM medicamentos WHERE id = ?', [req.params.id]);
-    const [tomasActualizadas] = fechaProgramada
-      ? await conn.query(
-          `UPDATE historial_tomas SET fecha_programada = ?
-           WHERE medicamento_id = ? AND estado = 'pendiente' AND fecha_programada >= NOW()`,
-          [fechaProgramada, req.params.id]
-        )
-      : await conn.query(
-          `UPDATE historial_tomas SET fecha_programada = DATE_ADD(NOW(), INTERVAL ? HOUR)
-           WHERE medicamento_id = ? AND estado = 'pendiente' AND fecha_programada >= NOW()`,
-          [horasIntervalo, req.params.id]
-        );
-    if (tomasActualizadas.affectedRows === 0) {
-      await conn.query(
-        `INSERT INTO historial_tomas (medicamento_id, perfil_id, fecha_programada, estado)
-         VALUES (?, ?, ?, 'pendiente')`,
-        [req.params.id, medicamentos[0].perfil_id, fechaProgramada || new Date(Date.now() + horasIntervalo * 3600000)]
-      );
-    }
 
-    const [horariosGuardados] = await conn.query('SELECT id FROM horarios_toma WHERE medicamento_id = ? LIMIT 1', [req.params.id]);
-    if (horariosGuardados.length > 0) {
-      await conn.query(
-        `UPDATE horarios_toma SET hora = ${horarioSolicitado ? '?' : 'TIME(DATE_ADD(NOW(), INTERVAL ? HOUR))'} WHERE id = ?`,
-        [horarioSolicitado || horasIntervalo, horariosGuardados[0].id]
-      );
-    } else {
-      await conn.query(
-        `INSERT INTO horarios_toma (medicamento_id, hora) VALUES (?, ${horarioSolicitado ? '?' : 'TIME(DATE_ADD(NOW(), INTERVAL ? HOUR))'})`,
-        [req.params.id, horarioSolicitado || horasIntervalo]
-      );
+    if (horarioSolicitado) {
+      const [horariosGuardados] = await conn.query('SELECT id FROM horarios_toma WHERE medicamento_id = ? ORDER BY id DESC LIMIT 1', [req.params.id]);
+      if (horariosGuardados.length > 0) {
+        await conn.query('UPDATE horarios_toma SET hora = ? WHERE id = ?', [horarioSolicitado, horariosGuardados[0].id]);
+      } else {
+        await conn.query('INSERT INTO horarios_toma (medicamento_id, hora) VALUES (?, ?)', [req.params.id, horarioSolicitado]);
+      }
     }
 
     await conn.commit();
+    await asegurarProximasTomas(medicamentos[0].perfil_id);
     res.json({ message: 'Medicamento actualizado' });
   } catch (err) {
     await conn.rollback();

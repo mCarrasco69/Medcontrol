@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { getProximasTomas, marcarComoOmitida, marcarComoTomada } from '../services/api';
 import type { HistorialToma } from '../models/historial';
@@ -41,6 +41,11 @@ export function useProximasTomas(perfilId: number) {
       setMarcando(false);
     }
   }, [cargar]);
+
+  useEffect(() => {
+    setProximas([]);
+    cargar();
+  }, [perfilId, cargar]);
 
   useFocusEffect(
     useCallback(() => {

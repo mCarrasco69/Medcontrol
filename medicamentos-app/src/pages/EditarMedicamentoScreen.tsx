@@ -34,6 +34,7 @@ type FormData = {
   unidad: string;
   presentacion: string;
   cantidad: string;
+  tipoToma: 'unica' | 'recurrente';
   frecuencia: string;
   duracion_dias: string;
   notas: string;
@@ -57,13 +58,14 @@ export default function EditarMedicamentoScreen() {
       unidad: 'mg',
       presentacion: 'tableta',
       cantidad: '1',
+      tipoToma: 'unica',
       frecuencia: '',
       duracion_dias: '',
       notas: '',
     },
   });
 
-  const frecuenciaValue = watch('frecuencia');
+  const tipoToma = watch('tipoToma');
 
   useEffect(() => {
     if (!medicamentoId) return;
@@ -83,6 +85,7 @@ export default function EditarMedicamentoScreen() {
           unidad: data.unidad ?? 'mg',
           presentacion: data.presentacion ?? 'tableta',
           cantidad: data.cantidad != null ? String(data.cantidad) : '1',
+          tipoToma: /una sola toma/i.test(data.frecuencia) ? 'unica' : 'recurrente',
           frecuencia: extraerHoras(data.frecuencia),
           duracion_dias: data.duracion_dias != null ? String(data.duracion_dias) : '',
           notas: data.notas ?? '',
@@ -104,7 +107,7 @@ export default function EditarMedicamentoScreen() {
         unidad: data.unidad,
         presentacion: data.presentacion,
         cantidad: data.cantidad ? Number(data.cantidad) : 1,
-        frecuencia: `Cada ${data.frecuencia} horas`,
+        frecuencia: data.tipoToma === 'unica' ? 'Una sola toma' : `Cada ${data.frecuencia} horas`,
         duracion_dias: data.duracion_dias ? Number(data.duracion_dias) : null,
         notas: data.notas || null,
         horarios: [String(horaPrimeraToma.getHours()).padStart(2, '0') + ':' + String(horaPrimeraToma.getMinutes()).padStart(2, '0')],
@@ -266,58 +269,60 @@ export default function EditarMedicamentoScreen() {
           )}
         />
 
-        {/* 3. Frecuencia (horas entre tomas) */}
-        <Text style={styles.label}>Horas entre cada toma</Text>
+        <Text style={styles.label}>Tipo de tratamiento</Text>
         <Controller
           control={control}
-          name="frecuencia"
-          rules={{
-            required: 'Este campo es obligatorio',
-            validate: (v) => {
-              const n = Number(v);
-              if (isNaN(n) || n < 1 || n > 72) return 'Ingresa entre 1 y 72 horas';
-              return true;
-            },
-          }}
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View>
-              <View style={styles.frecuenciaRow}>
-                <TextInput
-                  style={[styles.frecuenciaInput, error && styles.inputError]}
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Ej: 8"
-                  keyboardType="numeric"
-                />
-                <Text style={styles.frecuenciaLabel}>horas</Text>
-              </View>
-              {error && <Text style={styles.errorText}>{error.message}</Text>}
-
-              {/* Botones rápidos */}
-              <View style={styles.frecuenciaChips}>
-                {FRECUENCIAS_RAPIDAS.map((h) => (
-                  <TouchableOpacity
-                    key={h}
-                    style={[
-                      styles.chip,
-                      value === String(h) && styles.chipActive,
-                    ]}
-                    onPress={() => onChange(String(h))}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        value === String(h) && styles.chipTextActive,
-                      ]}
-                    >
-                      {h}h
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          name="tipoToma"
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.frecuenciaChips}>
+              <TouchableOpacity style={[styles.chip, value === 'unica' && styles.chipActive]} onPress={() => onChange('unica')}>
+                <Text style={[styles.chipText, value === 'unica' && styles.chipTextActive]}>Una sola toma</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.chip, value === 'recurrente' && styles.chipActive]} onPress={() => onChange('recurrente')}>
+                <Text style={[styles.chipText, value === 'recurrente' && styles.chipTextActive]}>Varias tomas</Text>
+              </TouchableOpacity>
             </View>
           )}
         />
+
+        {tipoToma === 'recurrente' ? (
+          <>
+            <Text style={styles.label}>Horas entre cada toma</Text>
+            <Controller
+              control={control}
+              name="frecuencia"
+              rules={{
+                validate: (v) => {
+                  const n = Number(v);
+                  if (isNaN(n) || n < 1 || n > 72) return 'Ingresa entre 1 y 72 horas';
+                  return true;
+                },
+              }}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <View>
+                  <View style={styles.frecuenciaRow}>
+                    <TextInput
+                      style={[styles.frecuenciaInput, error && styles.inputError]}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Ej: 8"
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.frecuenciaLabel}>horas</Text>
+                  </View>
+                  {error && <Text style={styles.errorText}>{error.message}</Text>}
+                  <View style={styles.frecuenciaChips}>
+                    {FRECUENCIAS_RAPIDAS.map((h) => (
+                      <TouchableOpacity key={h} style={[styles.chip, value === String(h) && styles.chipActive]} onPress={() => onChange(String(h))}>
+                        <Text style={[styles.chipText, value === String(h) && styles.chipTextActive]}>{h}h</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            />
+          </>
+        ) : null}
 
         <Text style={styles.label}>Hora de la primera toma</Text>
         <TouchableOpacity style={styles.input} onPress={() => setMostrarHora(true)}>

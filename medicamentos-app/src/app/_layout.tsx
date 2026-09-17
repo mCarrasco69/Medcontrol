@@ -13,7 +13,7 @@ import {
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 
-import { PerfilActivoProvider } from '../providers';
+import { AppProviders } from '../providers';
 import {
   solicitarPermisosNotificaciones,
   configurarCanalNotificaciones,
@@ -87,8 +87,8 @@ export default function RootLayout() {
   }
 
   return (
-    <PerfilActivoProvider>
+    <AppProviders>
       <Stack screenOptions={{ headerShown: false }} />
-    </PerfilActivoProvider>
+    </AppProviders>
   );
 }
